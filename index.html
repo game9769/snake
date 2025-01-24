@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>蕾蕾贪吃蛇</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #ffe6ff; /* Light pink */
+            color: #333;
+        }
+        .container {
+            text-align: center;
+            border: 2px dashed #ff99cc; /* Pink dashed border */
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            max-width: 500px;
+            width: 100%;
+        }
+        canvas {
+            background-color: #f0f8ff;
+            display: block;
+            margin: 0 auto;
+            border-radius: 10px;
+            position: relative;
+        }
+        button {
+            margin: 5px;
+            padding: 0;
+            width: 60px;
+            height: 60px;
+            font-size: 32px; /* Larger font size for icons */
+            cursor: pointer;
+            border: none;
+            border-radius: 50%;
+            background-color: #ffcdd2; /* Light red */
+            color: white;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+            outline: none;
+            box-shadow: 0 4px #ffab91; /* Shadow for depth */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        button:hover {
+            background-color: #ef9a9a; /* Darker light red on hover */
+        }
+        button:active {
+            background-color: #e57373; /* Even darker on active */
+            box-shadow: 0 5px #666;
+            transform: translateY(4px);
+        }
+        .control-buttons {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-gap: 10px;
+            justify-content: center;
+            align-items: center;
+            width: 210px; /* Adjusted width to ensure buttons are centered */
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .pause-button {
+            grid-column: 2 / span 1;
+            grid-row: 2 / span 1;
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            background-color: #bbdefb; /* Light blue */
+            box-shadow: 0 4px #81d4fa; /* Shadow for depth */
+        }
+        .pause-button:hover {
+            background-color: #81d4fa;
+        }
+        .pause-button:active {
+            background-color: #4fc3f7;
+            box-shadow: 0 5px #666;
+            transform: translateY(4px);
+        }
+        h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+            color: #ff4081; /* Bright pink */
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            canvas {
+                width: 90vw;
+                height: 90vw;
+            }
+            button {
+                padding: 0;
+                font-size: 28px;
+            }
+            .control-buttons {
+                grid-template-columns: repeat(3, 1fr);
+                width: 210px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>蕾蕾贪吃蛇 🐍️</h1>
+        <canvas id="gameCanvas"></canvas>
+        <button onclick="startGame()">开始游戏</button>
+        <div class="control-buttons">
+            <button style="visibility: hidden;"></button>
+            <button onclick="changeDirection('up')" class="arrow-button">⬆️</button>
+            <button style="visibility: hidden;"></button>
+            <button onclick="changeDirection('left')" class="arrow-button">⬅️</button>
+            <button class="pause-button" onclick="togglePause()" id="pauseButton">⏸️</button>
+            <button onclick="changeDirection('right')" class="arrow-button">➡️</button>
+            <button style="visibility: hidden;"></button>
+            <button onclick="changeDirection('down')" class="arrow-button">⬇️</button>
+            <button style="visibility: hidden;"></button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 设置初始画布大小
+        setCanvasSize();
+
+        window.addEventListener('resize', setCanvasSize);
+
+        function setCanvasSize() {
+            if (window.innerWidth > 600) {
+                canvas.width = 400;
+                canvas.height = 400;
+            } else {
+                canvas.width = Math.min(window.innerWidth * 0.9, 400);
+                canvas.height = Math.min(window.innerWidth * 0.9, 400);
+            }
+        }
+
+        let snake = JSON.parse(localStorage.getItem('snake')) || [{ x: canvas.width / 2, y: canvas.height / 2 }];
+        let dx = parseInt(localStorage.getItem('dx')) || 10;
+        let dy = parseInt(localStorage.getItem('dy')) || 0;
+        let food = JSON.parse(localStorage.getItem('food')) || { x: 0, y: 0, emoji: '🍎' };
+        let score = parseInt(localStorage.getItem('score')) || 0;
+        let gameRunning = false;
+
+        const fruits = ['🍎', '🍊', '🍋', '🍉', '🍇', '🍓', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑'];
+
+        function randomFood(min, max) {
+            return Math.round((Math.random() * (max-min) + min) / 10) * 10;
+        }
+
+        function createFood() {
+            food.x = randomFood(0, canvas.width - 10);
+            food.y = randomFood(0, canvas.height - 10);
+            food.emoji = fruits[Math.floor(Math.random() * fruits.length)];
+
+            for (let part of snake) {
+                if (part.x == food.x && part.y == food.y) {
+                    createFood();
+                }
+            }
+        }
+
+        function drawSnakePart(part, index) {
+            ctx.beginPath();
+            ctx.arc(part.x + 5, part.y + 5, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = '#FFCDD2'; // Light red for head and body
+            ctx.fill();
+
+            if (index === 0) {
+                // Snake head
+                ctx.beginPath();
+                ctx.arc(part.x + 5, part.y + 5, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = '#FFEB3B'; // Yellow for head
+                ctx.fill();
+
+                // Eye
+                ctx.beginPath();
+                ctx.arc(part.x + 5, part.y + 5, 1, 0, 2 * Math.PI);
+                ctx.fillStyle = '#000';
+                ctx.fill();
+            } else if (index === snake.length - 1) {
+                // Snake tail
+                ctx.beginPath();
+                ctx.moveTo(part.x + 5, part.y + 5);
+                ctx.lineTo(part.x + 10, part.y + 5);
+                ctx.strokeStyle = '#FFCDD2'; // Light red for tail
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function drawSnake() {
+            snake.forEach(drawSnakePart);
+        }
+
+        function changeDirection(direction) {
+            if (!gameRunning) return;
+
+            switch (direction) {
+                case 'up':
+                    if (dy === 0) {
+                        dx = 0;
+                        dy = -10;
+                    }
+                    break;
+                case 'down':
+                    if (dy === 0) {
+                        dx = 0;
+                        dy = 10;
+                    }
+                    break;
+                case 'left':
+                    if (dx === 0) {
+                        dx = -10;
+                        dy = 0;
+                    }
+                    break;
+                case 'right':
+                    if (dx === 0) {
+                        dx = 10;
+                        dy = 0;
+                    }
+                    break;
+            }
+        }
+
+        // 添加触摸事件支持
+        let touchStartX, touchStartY;
+
+        canvas.addEventListener('touchstart', function(e) {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        });
+
+        canvas.addEventListener('touchend', function(e) {
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
+
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                if (deltaX > 0 && dx !== -10) {
+                    dx = 10;
+                    dy = 0;
+                } else if (dx !== 10) {
+                    dx = -10;
+                    dy = 0;
+                }
+            } else {
+                if (deltaY > 0 && dy !== -10) {
+                    dx = 0;
+                    dy = 10;
+                } else if (dy !== 10) {
+                    dx = 0;
+                    dy = -10;
+                }
+            }
+        });
+
+        function checkCollision(head) {
+            for (let i = 4; i < snake.length; i++) {
+                if (snake[i].x === head.x && snake[i].y === head.y) return true;
+            }
+            const hitLeftWall = head.x < 0;
+            const hitRightWall = head.x > canvas.width - 10;
+            const hitTopWall = head.y < 0;
+            const hitBottomWall = head.y > canvas.height - 10;
+
+            return hitLeftWall || hitRightWall || hitTopWall || hitBottomWall;
+        }
+
+        function advanceSnake() {
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+            snake.unshift(head);
+
+            const didEatFood = snake[0].x === food.x && snake[0].y === food.y;
+            if (didEatFood) {
+                score += 10;
+                createFood();
+            } else {
+                snake.pop();
+            }
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawFood() {
+            ctx.font = '16px Arial'; // Smaller font size for fruit
+            ctx.fillStyle = '#333';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(food.emoji, food.x + 5, food.y + 5);
+        }
+
+        function drawScore() {
+            ctx.font = '20px Arial';
+            ctx.fillStyle = '#333';
+            ctx.fillText(`分数: ${score}`, canvas.width - 100, 20);
+        }
+
+        let gameInterval;
+
+        function gameLoop() {
+            if (checkCollision(snake[0])) {
+                clearInterval(gameInterval);
+                alert(`游戏结束! 您的得分是: ${score}`);
+                localStorage.removeItem('snake');
+                localStorage.removeItem('dx');
+                localStorage.removeItem('dy');
+                localStorage.removeItem('food');
+                localStorage.removeItem('score');
+                document.location.reload();
+                return;
+            }
+
+            clearCanvas();
+            drawFood();
+            advanceSnake();
+            drawSnake();
+            drawScore();
+
+            // Save game state to local storage
+            localStorage.setItem('snake', JSON.stringify(snake));
+            localStorage.setItem('dx', dx);
+            localStorage.setItem('dy', dy);
+            localStorage.setItem('food', JSON.stringify(food));
+            localStorage.setItem('score', score);
+        }
+
+        function startGame() {
+            if (gameRunning) return;
+            gameRunning = true;
+            document.querySelector('.pause-button').style.display = 'block';
+
+            if (snake.length === 1 && dx === 10 && dy === 0) {
+                score = 0;
+                snake = [{ x: canvas.width / 2, y: canvas.height / 2 }];
+                dx = 10;
+                dy = 0;
+                createFood();
+            }
+
+            gameInterval = setInterval(gameLoop, 100);
+        }
+
+        function togglePause() {
+            const pauseButton = document.getElementById('pauseButton');
+            if (gameRunning) {
+                clearInterval(gameInterval);
+                gameRunning = false;
+                pauseButton.textContent = '▶️';
+            } else {
+                gameInterval = setInterval(gameLoop, 100);
+                gameRunning = true;
+                pauseButton.textContent = '⏸️';
+            }
+        }
+    </script>
+</body>
+</html>
+
+
+
