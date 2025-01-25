@@ -18,11 +18,11 @@
         .container {
             text-align: center;
             border: 2px dashed #ff99cc; /* Pink dashed border */
-            padding: 20px;
+            padding: 10px;
             border-radius: 15px;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
             background-color: #fff;
-            max-width: 500px;
+            max-width: 400px;
             width: 100%;
         }
         canvas {
@@ -87,9 +87,15 @@
             transform: translateY(4px);
         }
         h1 {
-            font-size: 2em;
+            font-size: 1.5em;
             margin-bottom: 10px;
             color: #ff4081; /* Bright pink */
+        }
+        .score-board {
+            margin-top: 10px;
+            font-size: 1.2em;
+            color: #333;
+            font-weight: bold; /* Bold score board */
         }
         @media (max-width: 600px) {
             .container {
@@ -115,6 +121,7 @@
         <h1>蕾蕾贪吃蛇 🐍️</h1>
         <canvas id="gameCanvas"></canvas>
         <button onclick="startGame()">开始游戏</button>
+        <div class="score-board">分数: <span id="score">0</span></div>
         <div class="control-buttons">
             <button style="visibility: hidden;"></button>
             <button onclick="changeDirection('up')" class="arrow-button">⬆️</button>
@@ -147,17 +154,17 @@
             }
         }
 
-        let snake = JSON.parse(localStorage.getItem('snake')) || [{ x: canvas.width / 2, y: canvas.height / 2 }];
-        let dx = parseInt(localStorage.getItem('dx')) || 10;
-        let dy = parseInt(localStorage.getItem('dy')) || 0;
-        let food = JSON.parse(localStorage.getItem('food')) || { x: 0, y: 0, emoji: '🍎' };
-        let score = parseInt(localStorage.getItem('score')) || 0;
+        let snake = [{ x: canvas.width / 2, y: canvas.height / 2 }];
+        let dx = 10;
+        let dy = 0;
+        let food = { x: 0, y: 0, emoji: '🍎' };
+        let score = 0;
         let gameRunning = false;
 
         const fruits = ['🍎', '🍊', '🍋', '🍉', '🍇', '🍓', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑'];
 
         function randomFood(min, max) {
-            return Math.round((Math.random() * (max-min) + min) / 10) * 10;
+            return Math.round((Math.random() * (max - min) + min) / 10) * 10;
         }
 
         function createFood() {
@@ -289,6 +296,7 @@
             const didEatFood = snake[0].x === food.x && snake[0].y === food.y;
             if (didEatFood) {
                 score += 10;
+                document.getElementById('score').textContent = score;
                 createFood();
             } else {
                 snake.pop();
@@ -307,24 +315,13 @@
             ctx.fillText(food.emoji, food.x + 5, food.y + 5);
         }
 
-        function drawScore() {
-            ctx.font = '20px Arial';
-            ctx.fillStyle = '#333';
-            ctx.fillText(`分数: ${score}`, canvas.width - 100, 20);
-        }
-
         let gameInterval;
 
         function gameLoop() {
             if (checkCollision(snake[0])) {
                 clearInterval(gameInterval);
                 alert(`游戏结束! 您的得分是: ${score}`);
-                localStorage.removeItem('snake');
-                localStorage.removeItem('dx');
-                localStorage.removeItem('dy');
-                localStorage.removeItem('food');
-                localStorage.removeItem('score');
-                document.location.reload();
+                resetGame();
                 return;
             }
 
@@ -332,14 +329,6 @@
             drawFood();
             advanceSnake();
             drawSnake();
-            drawScore();
-
-            // Save game state to local storage
-            localStorage.setItem('snake', JSON.stringify(snake));
-            localStorage.setItem('dx', dx);
-            localStorage.setItem('dy', dy);
-            localStorage.setItem('food', JSON.stringify(food));
-            localStorage.setItem('score', score);
         }
 
         function startGame() {
@@ -347,15 +336,14 @@
             gameRunning = true;
             document.querySelector('.pause-button').style.display = 'block';
 
-            if (snake.length === 1 && dx === 10 && dy === 0) {
-                score = 0;
-                snake = [{ x: canvas.width / 2, y: canvas.height / 2 }];
-                dx = 10;
-                dy = 0;
-                createFood();
-            }
+            score = 0;
+            document.getElementById('score').textContent = score;
+            snake = [{ x: canvas.width / 2, y: canvas.height / 2 }];
+            dx = 10;
+            dy = 0;
+            createFood();
 
-            gameInterval = setInterval(gameLoop, 100);
+            gameInterval = setInterval(gameLoop, 100); // Reduced interval for better sensitivity
         }
 
         function togglePause() {
@@ -370,6 +358,40 @@
                 pauseButton.textContent = '⏸️';
             }
         }
+
+        function resetGame() {
+            score = 0;
+            document.getElementById('score').textContent = score;
+            snake = [{ x: canvas.width / 2, y: canvas.height / 2 }];
+            dx = 10;
+            dy = 0;
+            createFood();
+            gameRunning = false;
+            document.querySelector('.pause-button').textContent = '⏸️';
+            document.querySelector('.pause-button').style.display = 'none';
+        }
+
+        // 初始化食物
+        createFood();
+
+        // 添加键盘控制
+        document.addEventListener('keydown', function(event) {
+            const keyPressed = event.key;
+            switch (keyPressed) {
+                case 'ArrowUp':
+                    changeDirection('up');
+                    break;
+                case 'ArrowDown':
+                    changeDirection('down');
+                    break;
+                case 'ArrowLeft':
+                    changeDirection('left');
+                    break;
+                case 'ArrowRight':
+                    changeDirection('right');
+                    break;
+            }
+        });
     </script>
 </body>
 </html>
